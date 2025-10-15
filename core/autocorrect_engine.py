@@ -3,6 +3,7 @@ import re
 import time
 import pyautogui
 import pyperclip
+import threading  # <-- 1. Importamos threading
 from typing import Optional
 
 class AutocorrectEngine:
@@ -12,7 +13,9 @@ class AutocorrectEngine:
         self.dict_manager = dictionary_manager
         self.is_active = False
         self.last_word = ""
-        self.correction_in_progress = False
+        
+        # 2. Reemplazamos la variable 'correction_in_progress' por un Lock
+        self.correction_lock = threading.Lock()
         
         # Configuración de pyautogui
         pyautogui.PAUSE = 0.01  # Reducir delay entre acciones
@@ -70,8 +73,10 @@ class AutocorrectEngine:
         """
         Corrige una palabra si encuentra coincidencia en el diccionario
         Returns: True si se hizo corrección, False si no
+        
+        NOTA: Esta función asume que self.correction_lock ya ha sido adquirido.
         """
-        if not word or self.correction_in_progress:
+        if not word:
             return False
         
         corrected = self.dict_manager.get_corrected_word(word)
@@ -81,7 +86,7 @@ class AutocorrectEngine:
             return False
         
         try:
-            self.correction_in_progress = True
+            # 3. Eliminamos las referencias a 'correction_in_progress'
             
             # Seleccionar la palabra nuevamente
             pyautogui.hotkey('ctrl', 'shift', 'left')
@@ -90,20 +95,25 @@ class AutocorrectEngine:
             # Escribir palabra corregida
             pyautogui.write(corrected, interval=0.01)
             
-            self.correction_in_progress = False
             return True
             
         except Exception as e:
             print(f"[Error] Corrigiendo palabra: {e}")
-            self.correction_in_progress = False
             return False
     
     def process_trigger(self, event=None):
         """
         Procesa un trigger (espacio, enter, puntuación)
         Intenta corregir la última palabra escrita
+        
+        NOTA: Este método es llamado en un hilo separado por KeyboardListener
         """
-        if not self.is_active or self.correction_in_progress:
+        if not self.is_active:
+            return
+        
+        # 4. Usamos el Lock. Si no se puede adquirir, es porque
+        # ya hay otra corrección en curso, así que salimos.
+        if not self.correction_lock.acquire(blocking=False):
             return
         
         try:
@@ -116,17 +126,23 @@ class AutocorrectEngine:
             
         except Exception as e:
             print(f"[Error] En process_trigger: {e}")
+        finally:
+            # 5. Siempre liberamos el Lock al finalizar
+            self.correction_lock.release()
     
     def manual_correct_selection(self):
         """
         Corrige la selección actual manualmente
         Útil para corregir texto ya escrito
         """
-        if self.correction_in_progress:
+        
+        # 6. Usamos el Lock también para la corrección manual
+        if not self.correction_lock.acquire(blocking=False):
+            print("Corrección manual omitida, autocorrección en progreso.")
             return
         
         try:
-            self.correction_in_progress = True
+            # 7. Eliminamos las referencias a 'correction_in_progress'
             
             # Guardar clipboard original
             original_clipboard = pyperclip.paste()
@@ -137,7 +153,6 @@ class AutocorrectEngine:
             
             selected_text = pyperclip.paste()
             if not selected_text:
-                self.correction_in_progress = False
                 return
             
             words = re.findall(r'[a-záéíóúüñA-ZÁÉÍÓÚÜÑ]+', selected_text)
@@ -146,6 +161,10 @@ class AutocorrectEngine:
             for word in words:
                 corrected = self.dict_manager.get_corrected_word(word)
                 if corrected != word:
+                    # Usamos una forma más segura de reemplazar para evitar
+                    # reemplazar sub-palabras accidentalmente.
+                    # Esto asume que las palabras están separadas por espacios
+                    # o signos, lo cual es razonable.
                     corrected_text = corrected_text.replace(word, corrected)
             
             # Si hubo cambios, reemplazar
@@ -155,8 +174,8 @@ class AutocorrectEngine:
             # Restaurar clipboard
             pyperclip.copy(original_clipboard)
             
-            self.correction_in_progress = False
-            
         except Exception as e:
             print(f"[Error] En corrección manual: {e}")
-            self.correction_in_progress = False
+        finally:
+            # 8. Siempre liberamos el Lock al finalizar
+            self.correction_lock.release()

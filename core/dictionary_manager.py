@@ -109,17 +109,35 @@ class DictionaryManager:
     # ────────────────────────────────
     def _load_dictionaries(self):
         """Carga ambos diccionarios y los fusiona (prioriza el usuario)."""
+        default_dict = {}
+        user_dict = {}
+
+        # 1. Intentar cargar el diccionario por defecto de forma segura
         try:
             default_dict = json.loads(self.default_dict_path.read_text(encoding="utf-8"))
-            user_dict = json.loads(self.user_dict_path.read_text(encoding="utf-8"))
-
-            self.user_words = set(user_dict.keys())
-            self.dictionary = {**default_dict, **user_dict}
-
         except Exception as e:
-            print(f"[Error] Cargando diccionarios: {e}")
-            self.dictionary = {}
-            self.user_words = set()
+            print(f"[Error] No se pudo cargar el diccionario por defecto: {e}")
+            # Si el diccionario por defecto falla, es un problema mayor.
+            # Podríamos intentar recrearlo.
+            self._create_default_dictionary()
+            try:
+                default_dict = json.loads(self.default_dict_path.read_text(encoding="utf-8"))
+            except Exception as e2:
+                print(f"[Error CRÍTICO] No se pudo recrear ni cargar el diccionario por defecto: {e2}")
+
+        # 2. Intentar cargar el diccionario del usuario de forma segura
+        try:
+            user_dict = json.loads(self.user_dict_path.read_text(encoding="utf-8"))
+        except Exception as e:
+            print(f"[Error] No se pudo cargar el diccionario de usuario: {e}")
+            # Si el archivo del usuario está corrupto, lo reseteamos a un JSON vacío
+            self.user_dict_path.write_text("{}", encoding="utf-8")
+            user_dict = {}
+
+        # 3. Fusionar los diccionarios, dando prioridad al del usuario
+        self.user_words = set(user_dict.keys())
+        self.dictionary = {**default_dict, **user_dict}
+
 
     def reload(self):
         """Recarga los diccionarios desde disco."""
@@ -144,6 +162,7 @@ class DictionaryManager:
             return False, f"Esa palabra ya existe en el diccionario {tipo}: {self.dictionary[word_without]}"
 
         try:
+            # Recargamos el diccionario de usuario por si ha sido modificado externamente
             user_dict = json.loads(self.user_dict_path.read_text(encoding="utf-8"))
             user_dict[word_without] = word_with
 
@@ -152,6 +171,7 @@ class DictionaryManager:
                 encoding="utf-8"
             )
 
+            # Actualizamos la versión en memoria
             self.dictionary[word_without] = word_with
             self.user_words.add(word_without)
             return True, f"✅ '{word_with}' añadida correctamente."
@@ -167,6 +187,7 @@ class DictionaryManager:
             return False, "Solo puedes eliminar palabras que hayas agregado."
 
         try:
+            # Recargamos para evitar conflictos
             user_dict = json.loads(self.user_dict_path.read_text(encoding="utf-8"))
             user_dict.pop(word_without, None)
 
@@ -174,7 +195,8 @@ class DictionaryManager:
                 json.dumps(user_dict, ensure_ascii=False, indent=2),
                 encoding="utf-8"
             )
-
+            
+            # Actualizamos la versión en memoria
             self.dictionary.pop(word_without, None)
             self.user_words.discard(word_without)
 
@@ -194,7 +216,8 @@ class DictionaryManager:
         # Mantener formato de mayúsculas
         if word.isupper():
             return corrected.upper()
-        elif word[0].isupper():
+        # Evitar error si la palabra es de un solo caracter
+        elif len(word) > 0 and word[0].isupper():
             return corrected.capitalize()
         return corrected
 
