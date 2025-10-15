@@ -1,0 +1,7 @@
+{
+  "hotkey": "ctrl+shift+a",
+  "start_with_windows": false,
+  "run_in_background": true,
+  "first_run": false,
+  "ask_background_on_startup": true
+}
