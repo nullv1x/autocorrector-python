@@ -3,7 +3,7 @@
 AUTOCORRECTOR GLOBAL DE TILDES
 Aplicación de escritorio para corrección automática de tildes en Windows
 
-Autor: [Tu Nombre]
+Autor: [nullv1x]
 Versión: 1.0.0
 """
 
@@ -73,7 +73,7 @@ class AutocorrectorApp:
         
         text = """
         <h3>¡Bienvenido!</h3>
-        <p>Este programa te ayudará a escribir más rápido corrigiendo 
+        <p>Este programa te ayudará a escribir más rápido corrigiendo
         automáticamente las palabras sin tilde.</p>
         
         <p><b>¿Cómo funciona?</b></p>
@@ -84,11 +84,11 @@ class AutocorrectorApp:
         </ul>
         
         <p><b>Privacidad:</b></p>
-        <p>El programa necesita leer las teclas que presionas para poder 
-        corregir las palabras, pero NO almacena ni transmite ningún dato. 
+        <p>El programa necesita leer las teclas que presionas para poder
+        corregir las palabras, pero NO almacena ni transmite ningún dato.
         Todo el procesamiento es local en tu computadora.</p>
         
-        <p><b>Atajo rápido:</b> Usa <b>Ctrl+Shift+A</b> para activar/desactivar 
+        <p><b>Atajo rápido:</b> Usa <b>Ctrl+Shift+A</b> para activar/desactivar
         el corrector en cualquier momento.</p>
         """
         
@@ -111,7 +111,7 @@ class AutocorrectorApp:
             "del sistema. Podrás acceder a él haciendo clic en el icono."
         )
         msg.setStandardButtons(
-            QMessageBox.StandardButton.Yes | 
+            QMessageBox.StandardButton.Yes |
             QMessageBox.StandardButton.No
         )
         msg.setDefaultButton(QMessageBox.StandardButton.Yes)
@@ -135,7 +135,8 @@ class AutocorrectorApp:
         if '--minimized' in sys.argv or self.ask_background_mode():
             self.minimized_mode = True
             self.engine.activate()
-            self.tray_icon.update_icon()
+            # Sincronizar UI después de activar
+            self.on_toggle_from_hotkey(self.engine.is_active)
         else:
             self.show_window()
         
@@ -162,7 +163,7 @@ class AutocorrectorApp:
         self.hide_window()
         
         # Mostrar notificación
-        if self.tray_icon.icon:
+        if self.tray_icon.icon and self.tray_icon.icon.visible:
             self.tray_icon.icon.notify(
                 "Autocorrector de Tildes",
                 "La aplicación sigue ejecutándose en segundo plano"
@@ -173,18 +174,14 @@ class AutocorrectorApp:
         # Actualizar icono de bandeja
         self.tray_icon.update_icon()
         
-        # Actualizar UI si está visible
+        # --- 3. Lógica de actualización de UI modificada ---
+        # Actualizar UI si está visible, llamando al nuevo método
         if self.window_visible:
-            self.main_window.toggle_btn.setChecked(new_state)
-            if new_state:
-                self.main_window.status_label.setText("● ACTIVO")
-                self.main_window.status_label.setStyleSheet("color: #27ae60;")
-            else:
-                self.main_window.status_label.setText("● INACTIVO")
-                self.main_window.status_label.setStyleSheet("color: #e74c3c;")
+            self.main_window.update_control_section_ui(new_state)
+        # ----------------------------------------------------
         
         # Notificación
-        if self.tray_icon.icon:
+        if self.tray_icon.icon and self.tray_icon.icon.visible:
             status = "activado" if new_state else "desactivado"
             self.tray_icon.icon.notify(
                 "Autocorrector",
@@ -195,6 +192,9 @@ class AutocorrectorApp:
         """Cierra completamente la aplicación"""
         # Detener listener
         self.listener.stop()
+        
+        # Detener icono de la bandeja
+        self.tray_icon.stop()
         
         # Cerrar ventana
         self.main_window.close()

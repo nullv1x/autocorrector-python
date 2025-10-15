@@ -1,12 +1,13 @@
 # ui/main_window.py
 import sys
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-    QPushButton, QLabel, QLineEdit, QTableWidget, 
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QPushButton, QLabel, QLineEdit, QTableWidget,
     QTableWidgetItem, QMessageBox, QGroupBox, QComboBox,
     QCheckBox, QHeaderView
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer
+# 1. Se eliminó QTimer que no se usaba
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QColor
 
 class MainWindow(QMainWindow):
@@ -24,38 +25,32 @@ class MainWindow(QMainWindow):
         self.init_ui()
         self.load_settings()
         self.populate_table()
-    
+        self.update_control_section_ui(self.engine.is_active)
+
     def init_ui(self):
         """Inicializa la interfaz de usuario"""
         self.setWindowTitle("Autocorrector de Tildes")
         self.setMinimumSize(800, 600)
         
-        # Widget central
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         
-        # Layout principal
         main_layout = QVBoxLayout(central_widget)
         main_layout.setSpacing(15)
         main_layout.setContentsMargins(20, 20, 20, 20)
         
-        # === SECCIÓN: Control Principal ===
         control_group = self.create_control_section()
         main_layout.addWidget(control_group)
         
-        # === SECCIÓN: Agregar Palabra ===
         add_word_group = self.create_add_word_section()
         main_layout.addWidget(add_word_group)
         
-        # === SECCIÓN: Diccionario ===
         dict_group = self.create_dictionary_section()
         main_layout.addWidget(dict_group)
         
-        # === SECCIÓN: Configuración ===
         config_group = self.create_config_section()
         main_layout.addWidget(config_group)
         
-        # Aplicar estilos
         self.apply_styles()
     
     def create_control_section(self):
@@ -63,13 +58,11 @@ class MainWindow(QMainWindow):
         group = QGroupBox("Control Principal")
         layout = QHBoxLayout()
         
-        # Botón ON/OFF
         self.toggle_btn = QPushButton("ACTIVAR")
         self.toggle_btn.setMinimumHeight(60)
         self.toggle_btn.setCheckable(True)
         self.toggle_btn.clicked.connect(self.toggle_autocorrector)
         
-        # Indicador de estado
         self.status_label = QLabel("● INACTIVO")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         status_font = QFont()
@@ -88,7 +81,6 @@ class MainWindow(QMainWindow):
         group = QGroupBox("Agregar Nueva Palabra")
         layout = QVBoxLayout()
         
-        # Campos de entrada
         input_layout = QHBoxLayout()
         
         self.word_without_input = QLineEdit()
@@ -116,7 +108,6 @@ class MainWindow(QMainWindow):
         group = QGroupBox("Diccionario de Palabras")
         layout = QVBoxLayout()
         
-        # Barra de búsqueda
         search_layout = QHBoxLayout()
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Buscar palabra...")
@@ -129,13 +120,14 @@ class MainWindow(QMainWindow):
         search_layout.addWidget(self.search_input)
         search_layout.addWidget(self.delete_btn)
         
-        # Tabla de palabras
         self.table = QTableWidget()
         self.table.setColumnCount(3)
         self.table.setHorizontalHeaderLabels(["Sin Tilde", "Con Tilde", "Origen"])
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header = self.table.horizontalHeader()
+        if header is not None:
+            header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+            header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+            header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
@@ -143,7 +135,6 @@ class MainWindow(QMainWindow):
         layout.addLayout(search_layout)
         layout.addWidget(self.table)
         
-        # Contador de palabras
         self.word_count_label = QLabel()
         layout.addWidget(self.word_count_label)
         
@@ -155,28 +146,21 @@ class MainWindow(QMainWindow):
         group = QGroupBox("Configuración")
         layout = QVBoxLayout()
         
-        # Hotkey
         hotkey_layout = QHBoxLayout()
         hotkey_layout.addWidget(QLabel("Atajo de teclado:"))
         
         self.hotkey_combo = QComboBox()
         self.hotkey_combo.addItems([
-            "ctrl+shift+a",
-            "ctrl+shift+t",
-            "ctrl+alt+a",
-            "alt+shift+a",
-            "ctrl+shift+z"
+            "ctrl+shift+a", "ctrl+shift+t", "ctrl+alt+a", "alt+shift+a", "ctrl+shift+z"
         ])
         self.hotkey_combo.currentTextChanged.connect(self.change_hotkey)
         
         hotkey_layout.addWidget(self.hotkey_combo)
         hotkey_layout.addStretch()
         
-        # Checkbox: Iniciar con Windows
         self.startup_check = QCheckBox("Iniciar automáticamente con Windows")
         self.startup_check.stateChanged.connect(self.toggle_startup)
         
-        # Checkbox: Ejecutar en segundo plano
         self.background_check = QCheckBox("Ejecutar en segundo plano al iniciar")
         self.background_check.stateChanged.connect(self.toggle_background)
         
@@ -190,81 +174,52 @@ class MainWindow(QMainWindow):
     def apply_styles(self):
         """Aplica estilos CSS a la interfaz"""
         self.setStyleSheet("""
-            QMainWindow {
-                background-color: #f5f5f5;
-            }
+            QMainWindow { background-color: #f5f5f5; }
             QGroupBox {
-                font-weight: bold;
-                border: 2px solid #cccccc;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding-top: 10px;
-                background-color: white;
+                font-weight: bold; border: 2px solid #cccccc; border-radius: 8px;
+                margin-top: 10px; padding-top: 10px; background-color: white;
             }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px;
-            }
+            QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px; }
             QPushButton {
-                background-color: #4a90e2;
-                color: white;
-                border: none;
-                padding: 10px;
-                border-radius: 5px;
-                font-weight: bold;
-                font-size: 12px;
+                background-color: #4a90e2; color: white; border: none;
+                padding: 10px; border-radius: 5px; font-weight: bold; font-size: 12px;
             }
-            QPushButton:hover {
-                background-color: #357abd;
-            }
-            QPushButton:pressed {
-                background-color: #2a5f8f;
-            }
-            QPushButton:checked {
-                background-color: #27ae60;
-            }
-            QPushButton:checked:hover {
-                background-color: #229954;
-            }
+            QPushButton:hover { background-color: #357abd; }
+            QPushButton:pressed { background-color: #2a5f8f; }
+            QPushButton:checked { background-color: #27ae60; }
+            QPushButton:checked:hover { background-color: #229954; }
             QLineEdit {
-                padding: 8px;
-                border: 2px solid #ddd;
-                border-radius: 5px;
-                background-color: white;
+                padding: 8px; border: 2px solid #ddd; border-radius: 5px; background-color: white;
             }
-            QLineEdit:focus {
-                border-color: #4a90e2;
-            }
+            QLineEdit:focus { border-color: #4a90e2; }
             QTableWidget {
-                border: 1px solid #ddd;
-                border-radius: 5px;
-                background-color: white;
+                border: 1px solid #ddd; border-radius: 5px; background-color: white;
             }
-            QTableWidget::item:selected {
-                background-color: #4a90e2;
-                color: white;
-            }
+            QTableWidget::item:selected { background-color: #4a90e2; color: white; }
             QHeaderView::section {
-                background-color: #e8e8e8;
-                padding: 8px;
-                border: none;
-                font-weight: bold;
+                background-color: #e8e8e8; padding: 8px; border: none; font-weight: bold;
             }
         """)
     
-    def toggle_autocorrector(self, checked):
-        """Toggle del autocorrector"""
-        if checked:
-            self.engine.activate()
+    def update_control_section_ui(self, is_active):
+        """Actualiza toda la UI de la sección de control según el estado."""
+        self.toggle_btn.setChecked(is_active)
+        if is_active:
             self.toggle_btn.setText("DESACTIVAR")
             self.status_label.setText("● ACTIVO")
             self.status_label.setStyleSheet("color: #27ae60;")
         else:
-            self.engine.deactivate()
             self.toggle_btn.setText("ACTIVAR")
             self.status_label.setText("● INACTIVO")
             self.status_label.setStyleSheet("color: #e74c3c;")
+
+    def toggle_autocorrector(self, checked):
+        """Toggle del autocorrector desde el botón de la UI."""
+        if checked:
+            self.engine.activate()
+        else:
+            self.engine.deactivate()
+        self.update_control_section_ui(checked)
     
     def add_word(self):
         """Agrega una nueva palabra al diccionario"""
@@ -293,15 +248,21 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Error", "Por favor selecciona una palabra")
             return
         
-        word_without = self.table.item(current_row, 0).text()
-        origin = self.table.item(current_row, 2).text()
+        item_without = self.table.item(current_row, 0)
+        item_origin = self.table.item(current_row, 2)
+
+        if item_without is None or item_origin is None:
+            QMessageBox.warning(self, "Error", "No se pudo obtener la palabra seleccionada")
+            return
+
+        word_without = item_without.text()
+        origin = item_origin.text()
         
         if origin == "Sistema":
-            QMessageBox.warning(self, "Error", 
-                "No puedes eliminar palabras del diccionario base")
+            QMessageBox.warning(self, "Error", "No puedes eliminar palabras del diccionario base")
             return
         
-        reply = QMessageBox.question(self, "Confirmar", 
+        reply = QMessageBox.question(self, "Confirmar",
             f"¿Eliminar la palabra '{word_without}'?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         
@@ -322,22 +283,16 @@ class MainWindow(QMainWindow):
         self.table.setRowCount(len(words))
         
         for i, (word_without, (word_with, is_user)) in enumerate(sorted(words.items())):
-            # Columna 1: Palabra sin tilde
             item_without = QTableWidgetItem(word_without)
             self.table.setItem(i, 0, item_without)
             
-            # Columna 2: Palabra con tilde
             item_with = QTableWidgetItem(word_with)
             self.table.setItem(i, 1, item_with)
             
-            # Columna 3: Origen
             origin = "Usuario" if is_user else "Sistema"
             item_origin = QTableWidgetItem(origin)
             
-            if is_user:
-                item_origin.setForeground(QColor("#27ae60"))
-            else:
-                item_origin.setForeground(QColor("#7f8c8d"))
+            item_origin.setForeground(QColor("#27ae60" if is_user else "#7f8c8d"))
             
             self.table.setItem(i, 2, item_origin)
         
@@ -346,21 +301,24 @@ class MainWindow(QMainWindow):
     def filter_table(self, text):
         """Filtra la tabla según el texto de búsqueda"""
         for i in range(self.table.rowCount()):
-            word_without = self.table.item(i, 0).text()
-            word_with = self.table.item(i, 1).text()
-            
-            match = text.lower() in word_without.lower() or text.lower() in word_with.lower()
+            item0 = self.table.item(i, 0)
+            item1 = self.table.item(i, 1)
+            match = (
+                (item0 is not None and text.lower() in item0.text().lower()) or
+                (item1 is not None and text.lower() in item1.text().lower())
+            )
             self.table.setRowHidden(i, not match)
     
     def update_word_count(self):
         """Actualiza el contador de palabras"""
         total = self.table.rowCount()
-        user_count = sum(1 for i in range(total) 
-                        if self.table.item(i, 2).text() == "Usuario")
+        user_count = sum(
+            1 for i in range(total)
+            if (self.table.item(i, 2) is not None and self.table.item(i, 2) is not None and self.table.item(i, 2).text() == "Usuario")
+        )
         
         self.word_count_label.setText(
-            f"Total: {total} palabras ({user_count} personalizadas, "
-            f"{total - user_count} del sistema)"
+            f"Total: {total} palabras ({user_count} personalizadas, {total - user_count} del sistema)"
         )
     
     def change_hotkey(self, hotkey):
@@ -370,16 +328,18 @@ class MainWindow(QMainWindow):
             self.config.set_setting('hotkey', hotkey)
             self.config.save()
     
-    def toggle_startup(self, state):
+    # 2. Funciones de toggle corregidas
+    
+    def toggle_startup(self):
         """Activa/desactiva inicio automático con Windows"""
-        enabled = state == Qt.CheckState.Checked.value
+        enabled = self.startup_check.isChecked()
         self.config.set_setting('start_with_windows', enabled)
         self.config.save()
         self.config.set_startup(enabled)
     
-    def toggle_background(self, state):
+    def toggle_background(self):
         """Activa/desactiva ejecución en segundo plano"""
-        enabled = state == Qt.CheckState.Checked.value
+        enabled = self.background_check.isChecked()
         self.config.set_setting('run_in_background', enabled)
         self.config.save()
     
@@ -390,13 +350,8 @@ class MainWindow(QMainWindow):
         if index >= 0:
             self.hotkey_combo.setCurrentIndex(index)
         
-        self.startup_check.setChecked(
-            self.config.get_setting('start_with_windows', False)
-        )
-        
-        self.background_check.setChecked(
-            self.config.get_setting('run_in_background', True)
-        )
+        self.startup_check.setChecked(self.config.get_setting('start_with_windows', False))
+        self.background_check.setChecked(self.config.get_setting('run_in_background', True))
     
     def closeEvent(self, event):
         """Evento al cerrar la ventana"""
