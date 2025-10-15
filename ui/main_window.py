@@ -312,9 +312,14 @@ class MainWindow(QMainWindow):
     def update_word_count(self):
         """Actualiza el contador de palabras"""
         total = self.table.rowCount()
-        user_count = sum(
-            1 for i in range(total)
-            if (self.table.item(i, 2) is not None and self.table.item(i, 2) is not None and self.table.item(i, 2).text() == "Usuario")
+        
+        # Versión corregida y más segura
+        user_count = sum(1 for i in range(total) 
+                        if self.table.item(i, 2) and self.table.item(i, 2).text() == "Usuario") # type: ignore
+        
+        self.word_count_label.setText(
+            f"Total: {total} palabras ({user_count} personalizadas, "
+            f"{total - user_count} del sistema)"
         )
         
         self.word_count_label.setText(
@@ -353,7 +358,7 @@ class MainWindow(QMainWindow):
         self.startup_check.setChecked(self.config.get_setting('start_with_windows', False))
         self.background_check.setChecked(self.config.get_setting('run_in_background', True))
     
-    def closeEvent(self, event):
+    def closeEvent(self, event): # type: ignore
         """Evento al cerrar la ventana"""
         self.close_signal.emit()
         event.accept()

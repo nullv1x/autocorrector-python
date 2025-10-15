@@ -1,0 +1,20 @@
+========================================
+ INSTRUCCIONES - AutocorrectorTildes
+========================================
+
+1. Ejecuta AutocorrectorTildes.exe como ADMINISTRADOR
+   (Clic derecho -> Ejecutar como administrador)
+
+2. En el primer inicio:
+   - Lee el mensaje de bienvenida
+   - Elige si deseas ejecutar en segundo plano
+
+3. Uso basico:
+   - Activa el corrector desde la ventana principal
+   - O usa el atajo: Ctrl+Shift+A
+
+4. El programa se ejecutara en la bandeja del sistema
+   (icono junto al reloj)
+
+Para mas informacion, consulta README.md
+
